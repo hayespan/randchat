@@ -17,13 +17,13 @@ msgQ = Queue()
 pool = Pool(100)
 
 ip = '107.170.234.171'
-port = 8000
+port = 8888
 CHAT, INIT, DSTB, TEST = 0, 1, 2, 3, 
 CHECKOUT, MISS = -2, -1
 
 listenSoc = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
 listenSoc.bind((ip, port))
-listenSoc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+listenSoc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 10)
 listenSoc.listen(1000)
 
 def debug(s):
