@@ -17,7 +17,7 @@ msgQ = Queue()
 pool = Pool(100)
 
 ip = '107.170.234.171'
-port = 8888
+port = 8887
 CHAT, INIT, DSTB, TEST = 0, 1, 2, 3, 
 CHECKOUT, MISS = -2, -1
 
@@ -47,11 +47,11 @@ def sendJSON(signal, toid='', JSON=None, msg='', sendid='', recvid='', recvcon=N
         else:
             jsonpkg = JSON
         if not recvcon and toid:
-            objid, recvcon = distri_dict[toid]
+            objid, recvcon, gl = distri_dict[toid]
         recvcon.sendall(jsonpkg)
         return True
     except Exception, e:
-        print e
+	debug(str(signal)+str(e))
         return False
 
 def getUndistriUser(drop_first=False):
@@ -74,6 +74,9 @@ def chatRecv(user):
     usercon = user[1]
     while True:
         msgjs = usercon.recv(2048)
+	if not msgjs:
+	    return
+	debug(msgjs)
         msg = json.loads(msgjs)
         if msg[0] == TEST:
             pass
@@ -83,7 +86,7 @@ def chatRecv(user):
                 user2id = distri_dict[userid][0] # 获取聊天对象的id
                 # 如果聊天对象还在已分配群中，则通知其切换
                 if distri_dict.has_key(user2id):
-                    usercon2 = distri_dict[user2id] # 获取聊天对象的socket
+                    objid, usercon2, gl = distri_dict[user2id] # 获取聊天对象的socket
                     sendJSON(signal=MISS, recvcon=usercon2) # 发送MISS信号告知对象要切换
                 del distri_dict[userid] # 把当前用户移出已分配群
                 undistri_queue.put_nowait(user) # 把当前用户移回未分配队列
@@ -162,20 +165,20 @@ def distribute():
     配对
     '''
     while True:
-        debug('获取第一个用户')
         user1 = getUndistriUser(True)
-        debug('获取第二个用户')
+        debug('获取第一个用户')
         user2 = getUndistriUser()
+        debug('获取第二个用户')
         gl1, gl2 = None, None
         if not pool.full():
             gl1 = gevent.spawn(chatRecv, user1)
             pool.add(gl1)
-            debug('将第一个用户加入并发池'+gl1.started)
+            debug('将第一个用户加入并发池'+str(gl1.started))
         if not pool.full():
             gl2 = gevent.spawn(chatRecv, user2)
             pool.add(gl2)
-            debug('将第二个用户加入并发池'+gl2.started)
-        debug('并发池还有'+pool.free_count()+'空位')
+            debug('将第二个用户加入并发池'+str(gl2.started))
+        debug('并发池还有'+str(pool.free_count())+'空位')
         distri_dict[user1[0]] = [user2[0], user1[1], gl1]
         distri_dict[user2[0]] = [user1[0], user2[1], gl2]
         debug('将两个用户加入已配对队列')
@@ -189,7 +192,7 @@ def main():
             gevent.spawn(waitSoc),
             gevent.spawn(distribute),
             gevent.spawn(chatSend),
-            gevent.spawn(chatCheck),
+            # gevent.spawn(chatCheck),
             ])
 
 if __name__ == '__main__':
