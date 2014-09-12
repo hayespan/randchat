@@ -16,7 +16,7 @@ distri_dict = {}
 msgQ = Queue()
 pool = Pool(100)
 
-ip = 'localhost'
+ip = '107.170.234.171'
 port = 8000
 CHAT, INIT, DSTB, TEST = 0, 1, 2, 3, 
 CHECKOUT, MISS = -2, -1
@@ -25,6 +25,9 @@ listenSoc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listenSoc.bind((ip, port))
 listenSoc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 listenSoc.listen(1000)
+
+def debug(s):
+    print 'Debug:'+s
 
 def sendJSON(signal, toid='', JSON=None, msg='', sendid='', recvid='', recvcon=None):
     '''
@@ -47,7 +50,7 @@ def sendJSON(signal, toid='', JSON=None, msg='', sendid='', recvid='', recvcon=N
             objid, recvcon = distri_dict[toid]
         recvcon.sendall(jsonpkg)
         return True
-    except e:
+    except Exception, e:
         print e
         return False
 
@@ -124,6 +127,7 @@ def chatCheck():
     循环检测已配对用户连接，2秒发一次
     '''
     while True:
+        debug('循环检测已配对池中的连接状态')
         for userid in distri_dict.keys():
             objid, usercon, gl = distri_dict[userid]
             # 如果双方均断线，就得释放资源了
@@ -143,10 +147,14 @@ def waitSoc():
     循环监听端口，如果有新链接则分配uuid，告知之，加入未分配队列
     '''
     while True:
+        debug('开始监听端口')
         cliSoc, addr = listenSoc.accept()
+        debug('生成uuid')
         generid = uuid.uuid4()
+        debug('发送uuid告知用户')
         sendJSON(signal=INIT, msg=str(generid), recvcon=cliSoc)
-        undistri_queue.put_nowait([str(uuid), cliSoc])
+        debug('加入待分配队列')
+        undistri_queue.put_nowait([str(generid), cliSoc])
         gevent.sleep(0)
 
 def distribute():
@@ -154,19 +162,26 @@ def distribute():
     配对
     '''
     while True:
+        debug('获取第一个用户')
         user1 = getUndistriUser(True)
+        debug('获取第二个用户')
         user2 = getUndistriUser()
         gl1, gl2 = None, None
         if not pool.full():
             gl1 = gevent.spawn(chatRecv, user1)
             pool.add(gl1)
+            debug('将第一个用户加入并发池'+gl1.started)
         if not pool.full():
             gl2 = gevent.spawn(chatRecv, user2)
             pool.add(gl2)
+            debug('将第二个用户加入并发池'+gl2.started)
+        debug('并发池还有'+pool.free_count()+'空位')
         distri_dict[user1[0]] = [user2[0], user1[1], gl1]
         distri_dict[user2[0]] = [user1[0], user2[1], gl2]
+        debug('将两个用户加入已配对队列')
         sendJSON(signal=DSTB, msg=user2[0], toid=user1[0])
         sendJSON(signal=DSTB, msg=user1[0], toid=user2[0])
+        debug('发送告知两个用户DSTB')
         gevent.sleep(0)
 
 def main():
