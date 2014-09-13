@@ -89,15 +89,20 @@ def chatRecv(user):
                 del distri_dict[userid]
             debug(str(e))
             return
-        msg = json.loads(msgjs)
+	msg = None
+	try:
+	    msg = json.loads(msgjs)
+	except Exception, e:
+	    debug(str(e))
+	    continue
         if msg[0] == TEST:
             pass
         if msg[0] == CHECKOUT:
             # 切换只改变自身状态为未分配，不改变聊天对象状态
             if distri_dict.has_key(userid):
                 user2id = distri_dict[userid][0] # 获取聊天对象的id
-                # 如果聊天对象还在已分配群中，则通知其切换
-                if distri_dict.has_key(user2id):
+                # 如果聊天对象还在还处于跟我配对中，则通知其切换
+                if distri_dict.has_key(user2id) and distri_dict[user2id][0]==userid:
                     objid, usercon2, gl = distri_dict[user2id] # 获取聊天对象的socket
                     sendJSON(signal=MISS, recvcon=usercon2) # 发送MISS信号告知对象要切换
                 del distri_dict[userid] # 把当前用户移出已分配群
@@ -159,7 +164,7 @@ def chatCheck():
                     pass
                 pool.discard(gl)
                 del distri_dict[userid]
-        gevent.sleep(2)
+        gevent.sleep(5)
 
 def waitSoc():
     '''
@@ -207,7 +212,7 @@ def main():
             gevent.spawn(waitSoc),
             gevent.spawn(distribute),
             gevent.spawn(chatSend),
-            # gevent.spawn(chatCheck),
+            gevent.spawn(chatCheck),
             ])
 
 if __name__ == '__main__':
