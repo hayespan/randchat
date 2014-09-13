@@ -54,12 +54,10 @@ def sendJSON(signal, toid='', JSON=None, msg='', sendid='', recvid='', recvcon=N
         print e
         return False
 
-def getUndistriUser(drop_first=False):
+def getUndistriUser():
     '''
     一定要返回未分配且有效user，测试不通过的直接丢掉
     '''
-    if drop_first:
-        undistri_queue.put_nowait(undistri_queue.get())
     while True:
         user = undistri_queue.get()
         if sendJSON(signal=TEST, recvcon=user[1]):
@@ -73,7 +71,23 @@ def chatRecv(user):
     userid = user[0]
     usercon = user[1]
     while True:
-        msgjs = usercon.recv(2048)
+        msgjs = None
+        try:
+            msgjs = usercon.recv(2048)
+            if not msgjs:
+                return
+        except Exception, e:
+            user1 = distri_dict.get(userid, None)
+            if user1:
+                user2 = distri_dict.get(user1[0], None)
+                if user2:
+                    if not sendJSON(signal=MISS, recvcon=user2[1]):
+                        pool.discard(user2[2])
+                        del distri_dict[user1[0]]
+                pool.discard(user1[2])
+                del distri_dict[userid]
+            debug(str(e))
+            return
         msg = json.loads(msgjs)
         if msg[0] == TEST:
             pass
@@ -163,7 +177,7 @@ def distribute():
     '''
     while True:
         debug('获取第一个用户')
-        user1 = getUndistriUser(True)
+        user1 = getUndistriUser()
         debug('获取第二个用户')
         user2 = getUndistriUser()
         gl1, gl2 = None, None
