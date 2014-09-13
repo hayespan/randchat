@@ -164,7 +164,7 @@ def chatCheck():
                     pass
                 pool.discard(gl)
                 del distri_dict[userid]
-        gevent.sleep(5)
+        gevent.sleep(30)
 
 def waitSoc():
     '''
@@ -187,8 +187,19 @@ def distribute():
     '''
     while True:
         user1 = getUndistriUser()
-        debug('获取第一个未分配用户:'+user1[0])
         user2 = getUndistriUser()
+	# 确保两个用户都是在线的，筛掉断线的
+	while True:
+	    bool1 = sendJSON(signal=TEST, recvcon=user1[1])
+	    bool2 = sendJSON(signal=TEST, recvcon=user2[1])
+	    if not (bool1 and bool2):
+		if bool1 and not bool2:
+		    user2 = getUndistriUser()
+		elif bool2 and not bool1:
+		    user1 = getUndistriUser()
+	    else:
+		break
+        debug('获取第一个未分配用户:'+user1[0])
         debug('获取第二个未分配用户:'+user2[0])
         gl1, gl2 = None, None
         if not pool.full():
@@ -204,6 +215,7 @@ def distribute():
         distri_dict[user2[0]] = [user1[0], user2[1], gl2]
         debug('将两个用户加入已配对队列，队列大小：'+str(len(distri_dict)))
         debug('发送DSTB信号给第一个用户:'+str(sendJSON(signal=DSTB, msg=user2[0], toid=user1[0])))
+	gevent.sleep(1)
         debug('发送DSTB信号给第二个用户:'+str(sendJSON(signal=DSTB, msg=user1[0], toid=user2[0])))
         gevent.sleep(0)
 
