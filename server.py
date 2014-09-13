@@ -108,21 +108,25 @@ def chatSend():
         # 发送信号MISS
         boolcon1 = sendJSON(signal=CHAT, toid=sendid, JSON=msgjs,)
         boolcon2 = sendJSON(signal=CHAT, toid=recvid, JSON=msgjs,)
-        if boolcon1 and boolcon2:
-            pass
-        elif boolcon1 and not boolcon2:
-            sendJSON(signal=MISS, recvid=sendid)
-            pool.discard(distri_dict[recvid][2])
-            del distri_dict[recvid]
-        elif boolcon2 and not boolcon1:
-            sendJSON(signal=MISS, recvid=recvid)
-            pool.discard(distri_dict[sendid][2])
-            del distri_dict[sendid]
-        else:
-            pool.discard(distri_dict[sendid][2])
-            pool.discard(distri_dict[recvid][2])
-            del distri_dict[sendid]
-            del distri_dict[recvid]
+	debug('发送消息'+str(boolcon1)+','+str(boolcon2))
+	try:
+	    if boolcon1 and boolcon2:
+	        pass
+	    elif boolcon1 and not boolcon2:
+	        sendJSON(signal=MISS, recvid=sendid)
+	        pool.discard(distri_dict[recvid][2])
+	        del distri_dict[recvid]
+	    elif boolcon2 and not boolcon1:
+	        sendJSON(signal=MISS, recvid=recvid)
+	        pool.discard(distri_dict[sendid][2])
+	        del distri_dict[sendid]
+	    else:
+	        pool.discard(distri_dict[sendid][2])
+	        pool.discard(distri_dict[recvid][2])
+	        del distri_dict[sendid]
+	        del distri_dict[recvid]
+	except Exception, e:
+	    debug(str(e))
         gevent.sleep(0)
 
 def chatCheck():
@@ -150,14 +154,14 @@ def waitSoc():
     循环监听端口，如果有新链接则分配uuid，告知之，加入未分配队列
     '''
     while True:
-        debug('开始监听端口')
         cliSoc, addr = listenSoc.accept()
-        debug('生成uuid')
+        debug('开始监听端口')
         generid = uuid.uuid4()
-        debug('发送uuid告知用户')
+        debug('生成uuid')
         sendJSON(signal=INIT, msg=str(generid), recvcon=cliSoc)
-        debug('加入待分配队列')
+        debug('发送uuid告知用户')
         undistri_queue.put_nowait([str(generid), cliSoc])
+        debug('加入未分配队列')
         gevent.sleep(0)
 
 def distribute():
@@ -166,9 +170,9 @@ def distribute():
     '''
     while True:
         user1 = getUndistriUser(True)
-        debug('获取第一个用户')
+        debug('获取第一个未分配用户:'+user1[0])
         user2 = getUndistriUser()
-        debug('获取第二个用户')
+        debug('获取第二个未分配用户:'+user2[0])
         gl1, gl2 = None, None
         if not pool.full():
             gl1 = gevent.spawn(chatRecv, user1)
@@ -181,10 +185,9 @@ def distribute():
         debug('并发池还有'+str(pool.free_count())+'空位')
         distri_dict[user1[0]] = [user2[0], user1[1], gl1]
         distri_dict[user2[0]] = [user1[0], user2[1], gl2]
-        debug('将两个用户加入已配对队列')
-        sendJSON(signal=DSTB, msg=user2[0], toid=user1[0])
-        sendJSON(signal=DSTB, msg=user1[0], toid=user2[0])
-        debug('发送告知两个用户DSTB')
+        debug('将两个用户加入已配对队列，队列大小：'+str(len(distri_dict)))
+        debug('发送DSTB信号给第一个用户:'+str(sendJSON(signal=DSTB, msg=user2[0], toid=user1[0])))
+        debug('发送DSTB信号给第二个用户:'+str(sendJSON(signal=DSTB, msg=user1[0], toid=user2[0])))
         gevent.sleep(0)
 
 def main():
