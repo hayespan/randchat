@@ -158,12 +158,18 @@ def chatCheck():
             if not sendJSON(TEST, recvcon=usercon):
                 if distri_dict.has_key(objid):
                     if not sendJSON(signal=MISS, toid=objid):
-                        pool.discard(distri_dict[objid][2])
-                        del distri_dict[objid]
+			try:
+			    pool.discard(distri_dict[objid][2])
+			    del distri_dict[objid]
+			except Exception, e:
+			    debug(str(e))
                 else:
                     pass
-                pool.discard(gl)
-                del distri_dict[userid]
+		try:
+		    pool.discard(gl)
+                    del distri_dict[userid]
+		except Exception, e:
+		    debug(str(e))
         gevent.sleep(30)
 
 def waitSoc():
@@ -214,8 +220,8 @@ def distribute():
         distri_dict[user1[0]] = [user2[0], user1[1], gl1]
         distri_dict[user2[0]] = [user1[0], user2[1], gl2]
         debug('将两个用户加入已配对队列，队列大小：'+str(len(distri_dict)))
-        debug('发送DSTB信号给第一个用户:'+str(sendJSON(signal=DSTB, msg=user2[0], toid=user1[0])))
 	gevent.sleep(1)
+        debug('发送DSTB信号给第一个用户:'+str(sendJSON(signal=DSTB, msg=user2[0], toid=user1[0])))
         debug('发送DSTB信号给第二个用户:'+str(sendJSON(signal=DSTB, msg=user1[0], toid=user2[0])))
         gevent.sleep(0)
 
